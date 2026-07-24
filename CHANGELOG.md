@@ -30,3 +30,8 @@ All notable changes to AssppWeb are documented in this file.
 
 - Add a Simplified Chinese README.
 - Document local source builds, Apple endpoint compatibility, rate limiting, and common Wisp troubleshooting.
+
+### Deployment
+
+- Build the Docker image from the current checkout instead of pulling the upstream GHCR image.
+- Set the Compose pull policy to `build` so `docker compose up -d` rebuilds after source updates while retaining Docker layer caching.

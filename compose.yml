@@ -1,6 +1,10 @@
 services:
   asspp:
-    image: ghcr.io/lakr233/assppweb:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: assppweb:local
+    pull_policy: build
     ports:
       - "8080:8080"
     volumes:

@@ -76,9 +76,13 @@ If your build log fails at `Deploy a container application` with `Unauthorized`,
 **Setup Docker Compose**
 
 ```bash
-curl -O https://raw.githubusercontent.com/Lakr233/AssppWeb/main/compose.yml
+git clone https://github.com/Jinn-Y/AssppWeb.git
+cd AssppWeb
+git switch release
 docker compose up -d
 ```
+
+The Compose service builds `assppweb:local` from the current checkout and uses `pull_policy: build`. After pulling new commits, the same `docker compose up -d` command rebuilds the image and recreates the container when the image changes. Docker BuildKit still reuses unchanged layers, so dependencies are not downloaded again unless their lockfiles change.
 
 **Environment Variables**
 
@@ -114,7 +118,14 @@ AssppWeb relies on the Wisp protocol over WebSocket (`/wisp/`) for its zero-trus
 
 ### Build the Current Source
 
-The provided `compose.yml` pulls the published upstream image. To test changes from the current checkout, build the source explicitly:
+The provided `compose.yml` already builds the current checkout:
+
+```bash
+git pull
+docker compose up -d
+```
+
+To build and run without Compose:
 
 ```bash
 docker build -t assppweb:local .

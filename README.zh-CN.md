@@ -47,13 +47,26 @@ Apple 可能随时调整接口地址和重定向行为。当前版本通过以�
 ### 使用 Docker Compose
 
 ```bash
-curl -O https://raw.githubusercontent.com/Lakr233/AssppWeb/main/compose.yml
+git clone https://github.com/Jinn-Y/AssppWeb.git
+cd AssppWeb
+git switch release
 docker compose up -d
 ```
 
-仓库中的 `compose.yml` 默认拉取上游发布镜像。如果要测试当前检出的源码，必须自行构建，单纯执行 `docker compose pull` 或重启容器不会包含本地修改。
+`compose.yml` 会从当前检出的源码构建本地镜像 `assppweb:local`。其中 `pull_policy: build` 会要求 Compose 在执行 `docker compose up -d` 时重新运行构建，即使本地已经存在同名镜像。
+
+以后更新只需要：
+
+```bash
+git pull
+docker compose up -d
+```
+
+Docker BuildKit 会复用未变化的构建层；只有依赖锁文件变化时，才需要重新执行对应的 `npm ci` 层。
 
 ### 构建当前源码
+
+如果不使用 Compose，可以手动构建和运行：
 
 ```bash
 docker build -t assppweb:local .
@@ -159,7 +172,7 @@ TCP 和 TLS 都成功并不能证明认证业务成功，只能排除 DNS、端�
 
 ### Docker 重启后修复未生效
 
-检查 `compose.yml` 中的 `image`。如果仍是上游镜像，重启不会使用本地源码。应自行构建镜像或发布 fork 的镜像并修改 Compose。
+先执行 `git log -1 --oneline` 确认源码已经更新，再执行 `docker compose up -d`。当前 Compose 配置会强制走本地构建；如果使用了其他 Compose 文件或执行时带有 `--no-build`，则不会生成新镜像。
 
 ## 测试
 
