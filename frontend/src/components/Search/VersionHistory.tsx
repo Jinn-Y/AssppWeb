@@ -5,11 +5,12 @@ import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
+import { useToastStore } from "../../store/toast";
 import { listVersions } from "../../apple/versionFinder";
 import { storeIdToCountry } from "../../apple/config";
 import { getVersionMetadata } from "../../apple/versionLookup";
+import { reportClientError } from "../../api/diagnostics";
 import { getErrorMessage } from "../../utils/error";
-import { useToastStore } from "../../store/toast";
 import type { Software, VersionMetadata } from "../../types";
 
 export default function VersionHistory() {
@@ -61,6 +62,17 @@ export default function VersionHistory() {
       setVersions(result.versions);
       await updateAccount({ ...account, cookies: result.updatedCookies });
     } catch (e) {
+      void reportClientError({
+        operation: "version-list",
+        phase: "apple-version-list",
+        error: e,
+        context: {
+          appId: app.id,
+          bundleId: app.bundleID,
+          store: account.store,
+          version: app.version,
+        },
+      });
       addToast(getErrorMessage(e, t("search.versions.loadFailed")), "error");
     } finally {
       setLoading(false);
@@ -74,7 +86,19 @@ export default function VersionHistory() {
       const result = await getVersionMetadata(account, app, versionId);
       setVersionMeta((prev) => ({ ...prev, [versionId]: result.metadata }));
       await updateAccount({ ...account, cookies: result.updatedCookies });
-    } catch {
+    } catch (error) {
+      void reportClientError({
+        operation: "version-metadata",
+        phase: "apple-version-lookup",
+        error,
+        level: "warn",
+        context: {
+          appId: app.id,
+          bundleId: app.bundleID,
+          store: account.store,
+          version: versionId,
+        },
+      });
       // Silently fail for individual version metadata
     } finally {
       setLoadingMeta((prev) => ({ ...prev, [versionId]: false }));

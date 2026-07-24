@@ -7,6 +7,7 @@ import { useAccounts } from "../../hooks/useAccounts";
 import { useToastStore } from "../../store/toast";
 import { authenticate, AuthenticationError } from "../../apple/authenticate";
 import { storeIdToCountry } from "../../apple/config";
+import { reportClientError } from "../../api/diagnostics";
 import { getErrorMessage } from "../../utils/error";
 
 export default function AccountDetail() {
@@ -79,6 +80,12 @@ export default function AccountDetail() {
         setNeedsCode(true);
         addToast(err.message, "error");
       } else {
+        void reportClientError({
+          operation: "reauthentication",
+          phase: needsCode ? "two-factor-submit" : "token-renewal",
+          error: err,
+          context: { store: account.store },
+        });
         addToast(
           getErrorMessage(err, t("accounts.detail.reauthFailed")),
           "error",

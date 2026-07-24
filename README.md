@@ -160,6 +160,29 @@ Vite proxies `/api` and `/wisp` to the backend at `localhost:8080`.
 - **Wisp connects but authentication stalls:** confirm that outbound TCP 443 works for `auth.itunes.apple.com` and that `/wisp/` WebSocket upgrades are allowed by the reverse proxy.
 - **Local Vite port reports `EACCES` on Windows:** check `netsh interface ipv4 show excludedportrange protocol=tcp` and select a port outside the reserved ranges.
 
+### Diagnostic Logs
+
+Apple TLS terminates in the browser, so the Wisp backend cannot inspect Apple business errors. The frontend reports a strictly allowlisted diagnostic event for failed authentication, license, download, and version operations:
+
+```text
+[ClientDiagnostic] {"eventId":"...","operation":"download","phase":"apple-download-info","errorCode":"5002",...}
+```
+
+Asynchronous backend download and SINF injection failures use:
+
+```text
+[DownloadError] {"eventId":"...","taskId":"...","phase":"sinf-injection",...}
+```
+
+Unexpected API failures use `[ServerError]`. Search all related container logs with:
+
+```bash
+docker compose logs --since 30m asspp |
+grep -E 'ClientDiagnostic|DownloadError|ServerError'
+```
+
+Client diagnostics contain only operation state, public app identifiers, storefront, status/error codes, and a bounded redacted message. Apple ID emails, passwords, tokens, cookies, DSIDs, device GUIDs, request bodies, and Plist payloads are not reported.
+
 See [CHANGELOG.md](CHANGELOG.md) for release changes.
 
 ## Security Recommendations

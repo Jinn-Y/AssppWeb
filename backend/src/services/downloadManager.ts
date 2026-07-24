@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { config, DOWNLOAD_TIMEOUT_MS } from "../config.js";
+import { sanitizeLogMessage } from "../utils/log.js";
 import { inject } from "./sinfInjector.js";
 import { ChunkedDownloader } from "./chunkedDownloader.js";
 import type { DownloadTask, Software, Sinf } from "../types/index.js";
@@ -510,18 +511,45 @@ async function startDownload(task: DownloadTask) {
     if (err instanceof Error && err.name === "AbortError") {
       // Status may have been changed to "paused" externally by pauseTask()
       if ((task.status as string) === "paused") return;
+      const eventId = uuidv4();
+      console.error(
+        `[DownloadError] ${JSON.stringify({
+          timestamp: new Date().toISOString(),
+          eventId,
+          taskId: task.id,
+          phase: "download-timeout",
+          appId: task.software.id,
+          bundleId: task.software.bundleID,
+          version: task.software.version,
+          message: "Download timed out",
+        })}`,
+      );
       task.status = "failed";
-      task.error = "Download timed out";
+      task.error = `Download timed out [eventId: ${eventId}]`;
       notifyProgress(task);
       return;
     }
 
+    const eventId = uuidv4();
+    const phase =
+      task.status === "injecting" ? "sinf-injection" : "ipa-download";
     task.status = "failed";
     console.error(
-      `Download ${task.id} failed:`,
-      err instanceof Error ? err.message : err,
+      `[DownloadError] ${JSON.stringify({
+        timestamp: new Date().toISOString(),
+        eventId,
+        taskId: task.id,
+        phase,
+        appId: task.software.id,
+        bundleId: task.software.bundleID,
+        version: task.software.version,
+        errorName: err instanceof Error ? err.name : "UnknownError",
+        message: sanitizeLogMessage(
+          err instanceof Error ? err.message : String(err),
+        ),
+      })}`,
     );
-    task.error = "Download failed";
+    task.error = `Download failed [eventId: ${eventId}]`;
     notifyProgress(task);
   }
 }

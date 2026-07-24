@@ -18,6 +18,9 @@ All notable changes to AssppWeb are documented in this file.
 
 - Add bounded response diagnostics for malformed Apple responses.
 - Avoid logging Plist bodies, credentials, cookies, password tokens, or other sensitive authentication data.
+- Forward allowlisted browser-side Apple protocol failures to structured backend logs with correlation IDs.
+- Add structured download, SINF injection, and unexpected API error logs.
+- Include the backend `eventId` in asynchronous task failures for direct log correlation.
 
 ### Tests
 

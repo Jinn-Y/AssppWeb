@@ -170,6 +170,29 @@ TCP 和 TLS 都成功并不能证明认证业务成功，只能排除 DNS、端�
 - 检查后端日志是否出现目标主机被白名单拒绝。
 - 不要在后端记录或抓取 TLS 明文；该项目的安全边界就是浏览器端 TLS。
 
+### 结构化诊断日志
+
+Apple TLS 在浏览器中终止，因此 Wisp 后端无法直接看到 Apple 返回的业务错误。认证、许可证、下载信息和版本请求在前端失败后，会向后端发送严格白名单化的诊断事件：
+
+```text
+[ClientDiagnostic] {"eventId":"...","operation":"download","phase":"apple-download-info","errorCode":"5002",...}
+```
+
+后端异步下载或 SINF 注入失败使用：
+
+```text
+[DownloadError] {"eventId":"...","taskId":"...","phase":"sinf-injection",...}
+```
+
+未捕获的 API 异常使用 `[ServerError]`。可以按以下方式集中查看：
+
+```bash
+docker compose logs --since 30m asspp |
+grep -E 'ClientDiagnostic|DownloadError|ServerError'
+```
+
+前端诊断只允许上报操作阶段、公开 App 标识、商店区域、HTTP/Apple 错误码和经过长度限制与脱敏的消息。邮箱、密码、Token、Cookie、DSID、设备 GUID、请求体和 Plist 不会上报。
+
 ### Docker 重启后修复未生效
 
 先执行 `git log -1 --oneline` 确认源码已经更新，再执行 `docker compose up -d`。当前 Compose 配置会强制走本地构建；如果使用了其他 Compose 文件或执行时带有 `--no-build`，则不会生成新镜像。

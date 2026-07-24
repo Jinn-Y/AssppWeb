@@ -123,6 +123,10 @@ The backend proxies the bag endpoint via `GET /api/bag?guid=<deviceId>` using No
 - `tsx` for development, `tsc` for production build
 - SINF injector also handles optional `iTunesMetadata.plist` injection at IPA root
 - Bag proxy for `init.itunes.apple.com`
+- Client diagnostics endpoint (`POST /api/client-logs`) accepts only allowlisted,
+  sanitized operation metadata. It must never receive or log Apple ID emails,
+  passwords, password tokens, cookies, DSIDs, device GUIDs, request bodies, or
+  Plist payloads.
 
 ### Backend Shared Utilities
 

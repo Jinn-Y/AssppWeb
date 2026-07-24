@@ -6,6 +6,7 @@ import { getDownloadInfo } from "../apple/download";
 import { purchaseApp } from "../apple/purchase";
 import { authenticate } from "../apple/authenticate";
 import { apiPost, apiGet } from "../api/client";
+import { reportClientError } from "../api/diagnostics";
 import { accountHash } from "../utils/account";
 import { getErrorMessage } from "../utils/error";
 import { getAccountContext } from "../utils/toast";
@@ -50,29 +51,46 @@ export function useDownloadAction() {
       // Settings fetch failed — backend will still enforce the limit
     }
 
-    const { output, updatedCookies } = await getDownloadInfo(
-      account,
-      app,
-      versionId,
-    );
-    await updateAccount({ ...account, cookies: updatedCookies });
-    const hash = await accountHash(account);
+    let phase = "apple-download-info";
+    try {
+      const { output, updatedCookies } = await getDownloadInfo(
+        account,
+        app,
+        versionId,
+      );
+      await updateAccount({ ...account, cookies: updatedCookies });
+      const hash = await accountHash(account);
 
-    await apiPost("/api/downloads", {
-      software: { ...app, version: output.bundleShortVersionString },
-      accountHash: hash,
-      downloadURL: output.downloadURL,
-      sinfs: output.sinfs,
-      iTunesMetadata: output.iTunesMetadata,
-    });
+      phase = "backend-download-queue";
+      await apiPost("/api/downloads", {
+        software: { ...app, version: output.bundleShortVersionString },
+        accountHash: hash,
+        downloadURL: output.downloadURL,
+        sinfs: output.sinfs,
+        iTunesMetadata: output.iTunesMetadata,
+      });
 
-    fetchTasks();
+      fetchTasks();
 
-    addToast(
-      t("toast.msg", { appName, ...ctx }),
-      "info",
-      t("toast.title.downloadStarted"),
-    );
+      addToast(
+        t("toast.msg", { appName, ...ctx }),
+        "info",
+        t("toast.title.downloadStarted"),
+      );
+    } catch (error) {
+      void reportClientError({
+        operation: "download",
+        phase,
+        error,
+        context: {
+          appId: app.id,
+          bundleId: app.bundleID,
+          store: account.store,
+          version: versionId ?? app.version,
+        },
+      });
+      throw error;
+    }
   }
 
   async function acquireLicense(account: Account, app: Software) {
@@ -93,18 +111,48 @@ export function useDownloadAction() {
       );
       await updateAccount(renewed);
       currentAccount = renewed;
-    } catch {
+    } catch (error) {
+      void reportClientError({
+        operation: "license",
+        phase: "token-renewal",
+        error,
+        level: "warn",
+        context: {
+          appId: app.id,
+          bundleId: app.bundleID,
+          store: account.store,
+          version: app.version,
+        },
+      });
       // Ignore — proceed with existing token
     }
 
-    const result = await purchaseApp(currentAccount, app);
-    await updateAccount({ ...currentAccount, cookies: result.updatedCookies });
+    try {
+      const result = await purchaseApp(currentAccount, app);
+      await updateAccount({
+        ...currentAccount,
+        cookies: result.updatedCookies,
+      });
 
-    addToast(
-      t("toast.msg", { appName, ...ctx }),
-      "success",
-      t("toast.title.licenseSuccess"),
-    );
+      addToast(
+        t("toast.msg", { appName, ...ctx }),
+        "success",
+        t("toast.title.licenseSuccess"),
+      );
+    } catch (error) {
+      void reportClientError({
+        operation: "license",
+        phase: "apple-purchase",
+        error,
+        context: {
+          appId: app.id,
+          bundleId: app.bundleID,
+          store: currentAccount.store,
+          version: app.version,
+        },
+      });
+      throw error;
+    }
   }
 
   function toastDownloadError(account: Account, app: Software, error: unknown) {

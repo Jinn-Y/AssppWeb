@@ -8,6 +8,7 @@ import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { useSettingsStore } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
 import { lookupApp } from "../../api/search";
+import { reportClientError } from "../../api/diagnostics";
 import { listVersions } from "../../apple/versionFinder";
 import { countryCodeMap, storeIdToCountry } from "../../apple/config";
 import { firstAccountCountry } from "../../utils/account";
@@ -122,6 +123,17 @@ export default function AddDownload() {
       await updateAccount({ ...account, cookies: result.updatedCookies });
       setStep("versions");
     } catch (e) {
+      void reportClientError({
+        operation: "version-list",
+        phase: "apple-version-list",
+        error: e,
+        context: {
+          appId: app.id,
+          bundleId: app.bundleID,
+          store: account.store,
+          version: app.version,
+        },
+      });
       addToast(getErrorMessage(e, t("downloads.add.versionsFailed")), "error");
     } finally {
       setLoadingAction(null);

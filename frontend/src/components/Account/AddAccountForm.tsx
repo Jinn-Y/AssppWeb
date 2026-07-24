@@ -7,6 +7,7 @@ import { useAccounts } from "../../hooks/useAccounts";
 import { useToastStore } from "../../store/toast";
 import { authenticate, AuthenticationError } from "../../apple/authenticate";
 import { generateDeviceId } from "../../apple/config";
+import { reportClientError } from "../../api/diagnostics";
 import { getErrorMessage } from "../../utils/error";
 
 export default function AddAccountForm() {
@@ -45,6 +46,11 @@ export default function AddAccountForm() {
         setNeedsCode(true);
         addToast(err.message, "error");
       } else {
+        void reportClientError({
+          operation: "authentication",
+          phase: needsCode ? "two-factor-submit" : "initial-login",
+          error: err,
+        });
         addToast(
           getErrorMessage(err, t("accounts.addForm.authFailed")),
           "error",
