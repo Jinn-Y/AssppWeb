@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildPlist } from "../../src/apple/plist";
 import {
   defaultAuthURL,
+  defaultRedownloadURL,
   fetchBag,
   normalizeAuthURL,
 } from "../../src/apple/bag";
@@ -31,6 +32,7 @@ describe("apple/bag", () => {
     expect(result.authURL).toBe(
       "https://buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/authenticate",
     );
+    expect(result.redownloadURL).toBe(defaultRedownloadURL);
   });
 
   it("normalizes a native auth endpoint at the plist root to the /fast/ path", async () => {
@@ -49,6 +51,30 @@ describe("apple/bag", () => {
 
     expect(result.authURL).toBe(
       "https://auth.itunes.apple.com/auth/v1/native/fast/",
+    );
+    expect(result.redownloadURL).toBe(defaultRedownloadURL);
+  });
+
+  it("parses redownloadProduct from urlBag", async () => {
+    const xml = buildPlist({
+      authenticateAccount: "https://auth.itunes.apple.com/auth/v1/native/fast",
+      urlBag: {
+        redownloadProduct:
+          "https://downloaddispatch.itunes.apple.com/r/redownload",
+      },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        text: async () => xml,
+      }),
+    );
+
+    const result = await fetchBag("aabbccddeeff");
+
+    expect(result.redownloadURL).toBe(
+      "https://downloaddispatch.itunes.apple.com/r/redownload",
     );
   });
 
@@ -69,6 +95,7 @@ describe("apple/bag", () => {
     const result = await fetchBag("aabbccddeeff");
 
     expect(result.authURL).toBe(defaultAuthURL);
+    expect(result.redownloadURL).toBe(defaultRedownloadURL);
   });
 
   it("falls back when bag proxy returns non-OK", async () => {
@@ -85,6 +112,7 @@ describe("apple/bag", () => {
     const result = await fetchBag("aabbccddeeff");
 
     expect(result.authURL).toBe(defaultAuthURL);
+    expect(result.redownloadURL).toBe(defaultRedownloadURL);
   });
 
   describe("normalizeAuthURL", () => {

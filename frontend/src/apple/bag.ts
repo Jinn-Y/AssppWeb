@@ -3,10 +3,15 @@ import { parsePlist } from "./plist";
 
 export interface BagOutput {
   authURL: string;
+  redownloadURL: string;
 }
 
 export const defaultAuthURL =
   "https://auth.itunes.apple.com/auth/v1/native/fast/";
+export const legacyAuthURL =
+  "https://buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/authenticate";
+export const defaultRedownloadURL =
+  "https://downloaddispatch.itunes.apple.com/r/redownload";
 
 const NATIVE_AUTH_HOST = "auth.itunes.apple.com";
 
@@ -44,7 +49,10 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
       console.warn(
         `[Bag] Proxy request failed, using default auth endpoint: ${err.error || `HTTP ${resp.status}`}`,
       );
-      return { authURL: defaultAuthURL };
+      return {
+        authURL: defaultAuthURL,
+        redownloadURL: defaultRedownloadURL,
+      };
     }
 
     const xml = await resp.text();
@@ -56,21 +64,34 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
     const authURL =
       (dict.authenticateAccount as string | undefined) ??
       (urlBag?.authenticateAccount as string | undefined);
+    const redownloadURL =
+      (dict.redownloadProduct as string | undefined) ??
+      (urlBag?.redownloadProduct as string | undefined) ??
+      defaultRedownloadURL;
 
     if (!authURL) {
       console.warn(
         "[Bag] authenticateAccount URL not found in bag, using default auth endpoint",
       );
-      return { authURL: defaultAuthURL };
+      return {
+        authURL: defaultAuthURL,
+        redownloadURL,
+      };
     }
 
-    return { authURL: normalizeAuthURL(authURL) };
+    return {
+      authURL: normalizeAuthURL(authURL),
+      redownloadURL,
+    };
   } catch (error) {
     console.warn(
       `[Bag] Failed to fetch/parse bag, using default auth endpoint: ${
         error instanceof Error ? error.message : String(error)
       }`,
     );
-    return { authURL: defaultAuthURL };
+    return {
+      authURL: defaultAuthURL,
+      redownloadURL: defaultRedownloadURL,
+    };
   }
 }

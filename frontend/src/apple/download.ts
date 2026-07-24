@@ -1,13 +1,18 @@
-import type { Account, Software, DownloadOutput, Sinf } from "../types";
-import { appleRequest } from "./request";
+import {
+  appleRequest,
+  appleResponseDiagnostics,
+  isRedirectStatus,
+} from "./request";
 import { buildPlist, parsePlist } from "./plist";
 import { extractAndMergeCookies } from "./cookies";
+import { fetchBag } from "./bag";
 import {
   RETRYABLE_FAILURE_TYPE,
   redownloadEndpoint,
   volumeStoreEndpoint,
 } from "./config";
 import i18n from "../i18n";
+import type { Account, Software, DownloadOutput, Sinf } from "../types";
 
 export class DownloadError extends Error {
   constructor(
@@ -63,10 +68,12 @@ export async function getDownloadInfo(
 
     cookies = extractAndMergeCookies(response.rawHeaders, cookies);
 
-    if (response.status === 302) {
+    if (isRedirectStatus(response.status)) {
       const location = response.headers["location"];
       if (!location) {
-        throw new DownloadError(i18n.t("errors.download.redirectLocation"));
+        throw new DownloadError(
+          `${i18n.t("errors.download.redirectLocation")} (${appleResponseDiagnostics(response)})`,
+        );
       }
       const url = new URL(location);
       requestHost = url.hostname;
@@ -84,7 +91,8 @@ export async function getDownloadInfo(
       // redownload dispatch endpoint, which serves the same payload.
       if (failureType === RETRYABLE_FAILURE_TYPE && !triedRedownload) {
         triedRedownload = true;
-        endpoint = redownloadEndpoint(deviceId);
+        const bag = await fetchBag(deviceId);
+        endpoint = redownloadEndpoint(deviceId, bag.redownloadURL);
         requestHost = endpoint.host;
         requestPath = endpoint.path;
         redirectAttempt = 0;

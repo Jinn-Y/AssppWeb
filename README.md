@@ -1,8 +1,25 @@
 # AssppWeb
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 A web-based tool for acquiring and installing iOS apps outside the App Store. Authenticate with your Apple ID, search for apps, acquire licenses, and install IPAs directly to your device.
 
 ![preview](./resources/preview.png)
+
+## Features
+
+- Apple ID authentication and account management in the browser
+- App Store search, license acquisition, version lookup, and IPA download
+- Per-account device identifiers and Apple pod routing
+- Zero-trust Wisp tunnel: Apple credentials never pass through the backend
+- Dynamic Apple Bag endpoint discovery with compatibility fallback
+- IPA packaging with SINF and iTunes metadata injection
+
+## Apple Service Compatibility
+
+Apple service endpoints and redirect behavior can change without notice. AssppWeb resolves the current authentication and redownload endpoints from `init.itunes.apple.com/bag.xml?ix=6`, validates the returned hosts, and uses a narrowly scoped legacy authentication fallback when the native endpoint returns an invalid protocol response.
+
+HTTP `429` responses are treated as rate limiting and are never retried automatically. Repeated login attempts can make Apple restrictions worse; wait before trying again or verify the account from an Apple device.
 
 ## Zero-Trust Architecture
 
@@ -95,6 +112,45 @@ AssppWeb relies on the Wisp protocol over WebSocket (`/wisp/`) for its zero-trus
 
 </details>
 
+### Build the Current Source
+
+The provided `compose.yml` pulls the published upstream image. To test changes from the current checkout, build the source explicitly:
+
+```bash
+docker build -t assppweb:local .
+docker run --rm -p 8080:8080 \
+  -v "$(pwd)/mnt/asspp-data:/data" \
+  -e DATA_DIR=/data \
+  assppweb:local
+```
+
+For local development without Docker:
+
+```bash
+cd backend
+npm ci
+UNSAFE_DANGEROUSLY_DISABLE_HTTPS_REDIRECT=true npm run dev
+```
+
+In another terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Vite proxies `/api` and `/wisp` to the backend at `localhost:8080`.
+
+## Troubleshooting
+
+- **Authentication redirect has no `Location` header:** update to a build containing the dynamic Bag and legacy authentication fallback.
+- **HTTP 429:** Apple is rate limiting the account or source IP. Stop retrying and wait before the next attempt.
+- **Wisp connects but authentication stalls:** confirm that outbound TCP 443 works for `auth.itunes.apple.com` and that `/wisp/` WebSocket upgrades are allowed by the reverse proxy.
+- **Local Vite port reports `EACCES` on Windows:** check `netsh interface ipv4 show excludedportrange protocol=tcp` and select a port outside the reserved ranges.
+
+See [CHANGELOG.md](CHANGELOG.md) for release changes.
+
 ## Security Recommendations
 
 **DDoS Protection**
@@ -107,7 +163,7 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## 🥰 Acknowledgments
 
-For projects that was stolen and used heavily:
+Projects used as important references:
 
 - [ipatool](https://github.com/majd/ipatool)
 - [Asspp](https://github.com/Lakr233/Asspp)

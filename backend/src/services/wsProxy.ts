@@ -3,12 +3,14 @@ import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 import { accessPasswordHash, verifyAccessToken } from "../config.js";
 
 // Allow only Apple hosts required by bag/auth/purchase/version flows.
-wisp.options.hostname_whitelist = [
+export const APPLE_HOSTNAME_WHITELIST = [
   /^auth\.itunes\.apple\.com$/,
   /^buy\.itunes\.apple\.com$/,
+  /^downloaddispatch\.itunes\.apple\.com$/,
   /^init\.itunes\.apple\.com$/,
   /^p\d+-buy\.itunes\.apple\.com$/,
 ];
+wisp.options.hostname_whitelist = APPLE_HOSTNAME_WHITELIST;
 wisp.options.port_whitelist = [443];
 wisp.options.allow_direct_ip = false;
 // allow_private_ips must be true: Docker/container DNS may resolve whitelisted

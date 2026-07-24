@@ -1,9 +1,14 @@
-import type { Account, Cookie } from "../types";
-import { appleRequest } from "./request";
+import {
+  appleRequest,
+  appleResponseDiagnostics,
+  isRedirectStatus,
+  type AppleResponse,
+} from "./request";
 import { buildPlist, parsePlist } from "./plist";
 import { extractAndMergeCookies } from "./cookies";
-import { fetchBag, defaultAuthURL } from "./bag";
+import { defaultAuthURL, fetchBag, legacyAuthURL } from "./bag";
 import i18n from "../i18n";
+import type { Account, Cookie } from "../types";
 
 export class AuthenticationError extends Error {
   constructor(
@@ -39,6 +44,7 @@ export async function authenticate(
 
   let currentAttempt = 0;
   let redirectAttempt = 0;
+  let triedLegacyFallback = false;
 
   while (currentAttempt < 2 && redirectAttempt <= 3) {
     currentAttempt++;
@@ -56,7 +62,10 @@ export async function authenticate(
       const plistBody = buildPlist(body);
 
       const headers: Record<string, string> = {
-        "Content-Type": "application/x-apple-plist",
+        "Content-Type":
+          requestHost === "auth.itunes.apple.com"
+            ? "application/x-www-form-urlencoded"
+            : "application/x-apple-plist",
       };
 
       const response = await appleRequest({
@@ -83,12 +92,34 @@ export async function authenticate(
       const podHeader = response.headers["pod"];
       const pod = podHeader || undefined;
 
+      if (response.status === 429) {
+        throw new AuthenticationError(
+          `Apple authentication rate limited (${appleResponseDiagnostics(response)})`,
+        );
+      }
+
+      if (
+        requestHost === "auth.itunes.apple.com" &&
+        !triedLegacyFallback &&
+        shouldFallbackToLegacy(response)
+      ) {
+        const legacyEndpoint = new URL(legacyAuthURL);
+        legacyEndpoint.searchParams.set("guid", deviceId);
+        requestHost = legacyEndpoint.hostname;
+        requestPath = `${legacyEndpoint.pathname}${legacyEndpoint.search}`;
+        triedLegacyFallback = true;
+        redirectAttempt = 0;
+        continue;
+      }
+
       // Handle redirect. The native /fast auth host can answer with 301 as
       // well as the usual 302, so follow the full set of redirect statuses.
-      if ([301, 302, 303, 307, 308].includes(response.status)) {
+      if (isRedirectStatus(response.status)) {
         const location = response.headers["location"];
         if (!location) {
-          throw new Error(i18n.t("errors.auth.redirectLocation"));
+          throw new Error(
+            `${i18n.t("errors.auth.redirectLocation")} (${appleResponseDiagnostics(response)})`,
+          );
         }
         const url = new URL(location);
         requestHost = url.hostname;
@@ -101,7 +132,16 @@ export async function authenticate(
       // Handle non-plist responses (e.g. 403 with empty body)
       if (!response.body.trim()) {
         throw new Error(
-          i18n.t("errors.auth.emptyBody", { status: response.status }),
+          `${i18n.t("errors.auth.emptyBody", {
+            status: response.status,
+          })} (${appleResponseDiagnostics(response)})`,
+        );
+      }
+
+      const contentType = response.headers["content-type"]?.toLowerCase() ?? "";
+      if (contentType.includes("text/html")) {
+        throw new Error(
+          `Apple authentication returned a non-plist response (${appleResponseDiagnostics(response)})`,
         );
       }
 
@@ -157,4 +197,16 @@ export async function authenticate(
   }
 
   throw lastError ?? new Error(i18n.t("errors.auth.unknownReason"));
+}
+
+function shouldFallbackToLegacy(response: AppleResponse): boolean {
+  if (response.status === 429) return false;
+  if (response.status === 404) return true;
+  if (isRedirectStatus(response.status) && !response.headers["location"]) {
+    return true;
+  }
+  if (!response.body.trim()) return true;
+
+  const contentType = response.headers["content-type"]?.toLowerCase() ?? "";
+  return contentType.includes("text/html");
 }

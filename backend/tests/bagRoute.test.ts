@@ -41,6 +41,7 @@ describe("Bag Route", () => {
     expect(getSpy).toHaveBeenCalledTimes(1);
 
     const [, options] = getSpy.mock.calls[0];
+    expect(String(getSpy.mock.calls[0][0])).toContain("bag.xml?ix=6&guid=");
     expect(options.headers["User-Agent"]).toContain("Configurator/2.17");
     expect(options.headers.Accept).toBe("application/xml");
   });

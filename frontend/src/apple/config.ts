@@ -163,6 +163,10 @@ export interface StoreDownloadEndpoint {
   externalVersionIdKey: string;
 }
 
+const DEFAULT_REDOWNLOAD_URL =
+  "https://downloaddispatch.itunes.apple.com/r/redownload";
+const ALLOWED_REDOWNLOAD_HOST = "downloaddispatch.itunes.apple.com";
+
 export function volumeStoreEndpoint(
   pod: string | undefined,
   deviceId: string,
@@ -174,10 +178,29 @@ export function volumeStoreEndpoint(
   };
 }
 
-export function redownloadEndpoint(deviceId: string): StoreDownloadEndpoint {
+export function redownloadEndpoint(
+  deviceId: string,
+  rawURL: string = DEFAULT_REDOWNLOAD_URL,
+): StoreDownloadEndpoint {
+  let url: URL;
+  try {
+    url = new URL(rawURL);
+  } catch {
+    url = new URL(DEFAULT_REDOWNLOAD_URL);
+  }
+
+  if (
+    url.protocol !== "https:" ||
+    url.hostname !== ALLOWED_REDOWNLOAD_HOST
+  ) {
+    url = new URL(DEFAULT_REDOWNLOAD_URL);
+  }
+
+  url.searchParams.set("guid", deviceId);
+
   return {
-    host: "downloaddispatch.itunes.apple.com",
-    path: `/r/redownload?guid=${deviceId}`,
+    host: url.hostname,
+    path: `${url.pathname}${url.search}`,
     externalVersionIdKey: "appExtVrsId",
   };
 }

@@ -1,12 +1,17 @@
-import type { Account, Software, VersionMetadata } from "../types";
-import { appleRequest } from "./request";
+import {
+  appleRequest,
+  appleResponseDiagnostics,
+  isRedirectStatus,
+} from "./request";
 import { buildPlist, parsePlist } from "./plist";
 import { extractAndMergeCookies } from "./cookies";
+import { fetchBag } from "./bag";
 import {
   RETRYABLE_FAILURE_TYPE,
   redownloadEndpoint,
   volumeStoreEndpoint,
 } from "./config";
+import type { Account, Software, VersionMetadata } from "../types";
 
 export async function getVersionMetadata(
   account: Account,
@@ -52,10 +57,12 @@ export async function getVersionMetadata(
 
     cookies = extractAndMergeCookies(response.rawHeaders, cookies);
 
-    if (response.status === 302) {
+    if (isRedirectStatus(response.status)) {
       const location = response.headers["location"];
       if (!location) {
-        throw new Error("Failed to retrieve redirect location");
+        throw new Error(
+          `Failed to retrieve redirect location (${appleResponseDiagnostics(response)})`,
+        );
       }
       const url = new URL(location);
       requestHost = url.hostname;
@@ -73,7 +80,8 @@ export async function getVersionMetadata(
       !triedRedownload
     ) {
       triedRedownload = true;
-      endpoint = redownloadEndpoint(deviceId);
+      const bag = await fetchBag(deviceId);
+      endpoint = redownloadEndpoint(deviceId, bag.redownloadURL);
       requestHost = endpoint.host;
       requestPath = endpoint.path;
       redirectAttempt = 0;

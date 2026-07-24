@@ -146,6 +146,26 @@ describe("apple/config", () => {
       expect(ep.externalVersionIdKey).toBe("appExtVrsId");
     });
 
+    it("uses a validated bag-provided redownload endpoint", () => {
+      const ep = redownloadEndpoint(
+        "aabbccddeeff",
+        "https://downloaddispatch.itunes.apple.com/r/redownload?old=1",
+      );
+      expect(ep.host).toBe("downloaddispatch.itunes.apple.com");
+      expect(ep.path).toBe(
+        "/r/redownload?old=1&guid=aabbccddeeff",
+      );
+    });
+
+    it("rejects a bag-provided redownload endpoint on another host", () => {
+      const ep = redownloadEndpoint(
+        "aabbccddeeff",
+        "https://downloaddispatch.itunes.apple.com.evil.example/r/redownload",
+      );
+      expect(ep.host).toBe("downloaddispatch.itunes.apple.com");
+      expect(ep.path).toBe("/r/redownload?guid=aabbccddeeff");
+    });
+
     it("exposes the retryable failure type used for fallback", () => {
       expect(RETRYABLE_FAILURE_TYPE).toBe("5002");
     });

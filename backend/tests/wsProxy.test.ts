@@ -3,7 +3,10 @@ import { createServer, Server } from "http";
 import net from "net";
 import { WebSocket } from "ws";
 import express from "express";
-import { setupWsProxy } from "../src/services/wsProxy.js";
+import {
+  APPLE_HOSTNAME_WHITELIST,
+  setupWsProxy,
+} from "../src/services/wsProxy.js";
 
 let httpServer: Server | null = null;
 let serverPort: number;
@@ -84,5 +87,14 @@ describe("Wisp Proxy", () => {
     });
 
     expect(rejected).toBe(true);
+  });
+
+  it("should allow only the required Apple download dispatch host", () => {
+    const isAllowed = (hostname: string) =>
+      APPLE_HOSTNAME_WHITELIST.some((pattern) => pattern.test(hostname));
+
+    expect(isAllowed("downloaddispatch.itunes.apple.com")).toBe(true);
+    expect(isAllowed("evil-downloaddispatch.itunes.apple.com")).toBe(false);
+    expect(isAllowed("downloaddispatch.example.com")).toBe(false);
   });
 });

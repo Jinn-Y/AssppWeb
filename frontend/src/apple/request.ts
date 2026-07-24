@@ -20,6 +20,43 @@ export interface AppleResponse {
   body: string;
 }
 
+export function isRedirectStatus(status: number): boolean {
+  return [301, 302, 303, 307, 308].includes(status);
+}
+
+export function appleResponseDiagnostics(response: AppleResponse): string {
+  const contentType = response.headers["content-type"] || "unknown";
+  const location = response.headers["location"] ? "present" : "missing";
+  const details = [
+    `HTTP ${response.status}`,
+    `content-type=${contentType}`,
+    `location=${location}`,
+  ];
+
+  if (!looksLikePlist(response.body)) {
+    const snippet = response.body
+      .replace(/<[^>]*>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    if (snippet) {
+      details.push(`response=${snippet}`);
+    }
+  }
+
+  return details.join(", ");
+}
+
+function looksLikePlist(body: string): boolean {
+  const trimmed = body.trim().toLowerCase();
+  return (
+    trimmed.startsWith("bplist") ||
+    trimmed.includes("<plist") ||
+    trimmed.includes("<dict") ||
+    trimmed.includes("<key")
+  );
+}
+
 export async function appleRequest(
   opts: AppleRequestOptions,
 ): Promise<AppleResponse> {

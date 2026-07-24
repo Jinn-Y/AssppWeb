@@ -23,7 +23,8 @@ router.get("/bag", async (req: Request, res: Response) => {
     return;
   }
 
-  const url = `https://init.itunes.apple.com/bag.xml?guid=${encodeURIComponent(guid)}`;
+  const url =
+    `https://init.itunes.apple.com/bag.xml?ix=6&guid=${encodeURIComponent(guid)}`;
 
   try {
     const body = await new Promise<string>((resolve, reject) => {
