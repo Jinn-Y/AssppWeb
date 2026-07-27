@@ -77,6 +77,13 @@ async function purchaseWithParams(
     cookies: account.cookies,
   });
 
+  const statusCode = response.status;
+  console.debug("[PurchaseRawResponse]", {
+    status: statusCode,
+    bodyLength: response.body?.length,
+    headers: response.rawHeaders,
+  });
+
   const updatedCookies = extractAndMergeCookies(
     response.rawHeaders,
     account.cookies,
