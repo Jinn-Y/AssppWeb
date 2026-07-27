@@ -84,6 +84,8 @@ async function purchaseWithParams(
 
   const dict = parsePlist(response.body) as Record<string, any>;
 
+  console.debug("[PurchaseResponse]", JSON.stringify(dict));
+
   if (dict.failureType) {
     const failureType = String(dict.failureType);
     const customerMessage = dict.customerMessage as string | undefined;
